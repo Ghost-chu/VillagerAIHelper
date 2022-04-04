@@ -7,7 +7,7 @@
 ## 命令
 
 ```plain
-/villageraihelper - 基于物品
+/villageraihelper - 给予物品
 ```
 
 ## 当前支持版本
