@@ -1,0 +1,9 @@
+name: VillagerAIHelper
+version: '${project.version}'
+main: com.ghostchu.villageraihelper.VillagerAIHelper
+api-version: 1.16
+description: Villager AI Helper
+commands:
+  villageraihelper:
+    usage: /villageraihelper by permission to get a stick
+    description: Give player who have permission a stick to switch the AI
