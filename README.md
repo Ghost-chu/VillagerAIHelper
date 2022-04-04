@@ -1,5 +1,4 @@
-VillagerAIHelper
----
+# VillagerAIHelper
 
 ## 简介
 允许玩家使用特定物品切换特定村民 AI 是否启用。  
