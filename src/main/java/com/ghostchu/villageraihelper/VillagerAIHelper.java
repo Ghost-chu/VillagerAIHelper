@@ -264,6 +264,8 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
                 AtomicInteger total = new AtomicInteger(0);
                 AtomicInteger canRestock = new AtomicInteger(0);
                 Bukkit.getWorlds().forEach(world -> world.getEntitiesByClass(Villager.class).forEach(villager -> {
+                    if(!isManagedVillager(villager))
+                        return;
                     total.incrementAndGet();
                     if (canRestock(villager))
                         canRestock.incrementAndGet();
