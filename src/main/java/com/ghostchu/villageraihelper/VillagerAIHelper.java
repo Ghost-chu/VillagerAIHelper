@@ -142,7 +142,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
     private void tryRepairIfNeeds(@NotNull Villager villager) {
         if (isManagedVillager(villager)) {
             if (!isManageWorking(villager)) {
-                getLogger().info("Patching the villager: " + villager + " since it status has been changed by other things.");
+                getLogger().info("Patching the villager at: " + villager.getLocation() + " since it status has been changed by other things.");
                 UUID uuid = getVillagerManager(villager);
                 if (uuid == null) uuid = new UUID(0, 0);
                 applyManage(villager, uuid);
