@@ -7,13 +7,16 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.v1_16_R3.entity.CraftVillager;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.entity.memory.MemoryKey;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -33,6 +36,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
     private final NamespacedKey VILLAGER_KEY = new NamespacedKey(this, "villager_managed");
     private int[] restockScheduler;
     private final Map<Villager.Profession, Material> jobSites = new HashMap<>();
+    private boolean chunkLoadingPatch = true;
 
     /**
      * 设置村民的工作方块
@@ -63,7 +67,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         // 配置文件上色
         Util.parseColours(getConfig());
         // 设置工具物品
-        ItemStack plugItem = new ItemStack(Material.getMaterial(getConfig().getString("item.type","STICK")));
+        ItemStack plugItem = new ItemStack(Material.getMaterial(getConfig().getString("item.type", "STICK")));
         ItemMeta meta = plugItem.getItemMeta();
         meta.setDisplayName(getConfig().getString("item.name"));
         meta.addEnchant(Enchantment.DURABILITY, 1, true);
@@ -81,6 +85,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         // 设置职业方块映射表
         this.setupJobSites();
         Bukkit.getPluginManager().registerEvents(this, this);
+        chunkLoadingPatch = getConfig().getBoolean("patch-villagers-on-chunk-loading", true);
         getLogger().info("VillagerAIHelper has been successfully enabled!");
         // 每个 tick 都要执行的时间检查
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
@@ -111,6 +116,38 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
                 getLogger().info("Total " + restocked + " managed villagers restocked and " + skipped + " skipped!");
             }
         }, 0, 1);
+
+        Bukkit.getScheduler().runTask(this, () -> {
+            Bukkit.getWorlds().forEach(world -> {
+                for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                    tryRepairIfNeeds(villager);
+                }
+            });
+        });
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onChunkLoad(ChunkLoadEvent event) {
+        if (event.isNewChunk())
+            return;
+        if (!chunkLoadingPatch)
+            return;
+        for (Entity entity : event.getChunk().getEntities()) {
+            if (entity instanceof Villager) {
+                tryRepairIfNeeds((Villager) entity);
+            }
+        }
+    }
+
+    private void tryRepairIfNeeds(@NotNull Villager villager) {
+        if (isManagedVillager(villager)) {
+            if (!isManageWorking(villager)) {
+                getLogger().info("Patching the villager: " + villager + " since it status has been changed by other things.");
+                UUID uuid = getVillagerManager(villager);
+                if (uuid == null) uuid = new UUID(0, 0);
+                applyManage(villager, uuid);
+            }
+        }
     }
 
     @Override
@@ -156,12 +193,10 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
      */
     @Nullable
     private UUID getVillagerManager(@NotNull Villager villager) {
-        {
-            if (!isManagedVillager(villager))
-                return null;
-            VillagerPastStatus data = gson.fromJson(villager.getPersistentDataContainer().get(VILLAGER_KEY, PersistentDataType.STRING), VillagerPastStatus.class);
-            return data.getOperator();
-        }
+        if (!isManagedVillager(villager))
+            return null;
+        VillagerPastStatus data = gson.fromJson(villager.getPersistentDataContainer().get(VILLAGER_KEY, PersistentDataType.STRING), VillagerPastStatus.class);
+        return data.getOperator();
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -186,10 +221,10 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
      * @param player   玩家
      */
     private void applyManage(@NotNull Villager villager, @NotNull UUID player) {
-        if (isManagedVillager(villager))
-            return;
-        VillagerPastStatus pastStatus = new VillagerPastStatus(villager.hasAI(), villager.isAware(), player);
-        villager.getPersistentDataContainer().set(VILLAGER_KEY, PersistentDataType.STRING, gson.toJson(pastStatus));
+        if (!isManagedVillager(villager)) {
+            VillagerPastStatus pastStatus = new VillagerPastStatus(villager.hasAI(), villager.isAware(), player);
+            villager.getPersistentDataContainer().set(VILLAGER_KEY, PersistentDataType.STRING, gson.toJson(pastStatus));
+        }
         villager.setAI(false);
         villager.setAware(false);
     }
@@ -208,6 +243,10 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         villager.getPersistentDataContainer().remove(VILLAGER_KEY);
         villager.setAI(pastStatus.isAiEnabled());
         villager.setAware(pastStatus.isAwareEnabled());
+    }
+
+    private boolean isManageWorking(@NotNull Villager villager) {
+        return !villager.hasAI() && !villager.isAware();
     }
 
     /**
@@ -261,7 +300,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
                 AtomicInteger total = new AtomicInteger(0);
                 AtomicInteger canRestock = new AtomicInteger(0);
                 Bukkit.getWorlds().forEach(world -> world.getEntitiesByClass(Villager.class).forEach(villager -> {
-                    if(!isManagedVillager(villager))
+                    if (!isManagedVillager(villager))
                         return;
                     total.incrementAndGet();
                     if (canRestock(villager))
