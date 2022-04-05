@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public final class VillagerAIHelper extends JavaPlugin implements Listener {
@@ -199,9 +200,19 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
      * @return 是否补货成功
      */
     private boolean restockVillager(@NotNull Villager villager) {
+        if (canRestock(villager)) {
+            // TODO: 当版本更新时，此处也需要同时更新
+            // TODO： 1.17+ 时，此处需要使用混淆映射表
+            CraftVillager craftVillager = (CraftVillager) villager;
+            craftVillager.getHandle().fb(); // fb -> restock()
+            return true;
+        }
+        return false;
+    }
+
+    private boolean canRestock(@NotNull Villager villager) {
         if (!isManagedVillager(villager))
             return false;
-
         Location jobSitePos = villager.getMemory(MemoryKey.JOB_SITE);
         if (jobSitePos == null)
             return false;
@@ -213,21 +224,34 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         }
         if (jobSitePos.getWorld() != villager.getWorld())
             return false;
-        if (jobSitePos.distance(villager.getLocation()) > getConfig().getInt("jobsite-max-distance", 2))
-            return false;
-        // TODO: 当版本更新时，此处也需要同时更新
-        // TODO： 1.17+ 时，此处需要使用混淆映射表
-        CraftVillager craftVillager = (CraftVillager) villager;
-        craftVillager.getHandle().fb(); // fb -> restock()
-        return true;
+        return !(jobSitePos.distance(villager.getLocation()) > getConfig().getInt("jobsite-max-distance", 2));
     }
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (sender.hasPermission("villageraihelper.admin") && sender instanceof Player) {
-            Player player = (Player) sender;
-            player.getInventory().addItem(HELPER_STICK);
-            return true;
+        if (args.length == 0)
+            return false;
+        if (args[0].equalsIgnoreCase("give")) {
+            if (sender.hasPermission("villageraihelper.give") && sender instanceof Player) {
+                Player player = (Player) sender;
+                player.getInventory().addItem(HELPER_STICK);
+                return true;
+            }
+        }
+        if (args[0].equalsIgnoreCase("stats")) {
+            if (sender.hasPermission("villageraihelper.stats")) {
+                sender.sendMessage("Calculating...");
+                AtomicInteger total = new AtomicInteger(0);
+                AtomicInteger canRestock = new AtomicInteger(0);
+                Bukkit.getWorlds().forEach(world -> world.getEntitiesByClass(Villager.class).forEach(villager -> {
+                    total.incrementAndGet();
+                    if (canRestock(villager))
+                        canRestock.incrementAndGet();
+                }));
+                sender.sendMessage("Total managed (loaded and active) villager(s): " + total.get());
+                sender.sendMessage("And " + canRestock.get() + " villager(s) can restock.");
+                return true;
+            }
         }
         return false;
     }
