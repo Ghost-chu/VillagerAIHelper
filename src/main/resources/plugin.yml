@@ -5,5 +5,5 @@ api-version: 1.16
 description: Villager AI Helper
 commands:
   villageraihelper:
-    usage: /villageraihelper by permission to get a stick
-    description: Give player who have permission a stick to switch the AI
+    usage: /villageraihelper <give/stats>
+    description: Main Command

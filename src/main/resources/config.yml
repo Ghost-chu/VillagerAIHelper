@@ -1,6 +1,7 @@
 debug: false
 # 失智棒 工具属性
 item:
+  type: STICK
   name: "&6失智棒"
   lores:
     - "&d好像轻轻一拍，村民就会变成呆若木鸡的样子"
@@ -10,6 +11,8 @@ item:
 message:
   apply: "&7随着你的轻轻一拍，村民失去了智慧..."
   undo: "&7你再次轻拍了一下，村民恢复了智慧..."
+  query-miss: "&7这个村民看起来一切正常."
+  query-hit: "&7这个村民看起来有点失智."
 # 补货时刻表 （tick）
 restock-schedule:
   - 3000
