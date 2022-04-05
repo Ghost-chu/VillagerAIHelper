@@ -23,10 +23,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -61,6 +58,8 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
     public void onEnable() {
         // Plugin startup logic
         saveDefaultConfig();
+        getConfig().options().copyDefaults(false);
+        reloadConfig();
         // 配置文件上色
         Util.parseColours(getConfig());
         // 设置工具物品
@@ -69,9 +68,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         meta.setDisplayName(getConfig().getString("item.name"));
         meta.addEnchant(Enchantment.DURABILITY, 1, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-        List<String> lores = getConfig().getStringList("item.lores");
-        lores = lores.stream().map(Util::parseColours).collect(Collectors.toList());
-        meta.setLore(lores);
+        meta.setLore(Arrays.stream(getConfig().getString("item.lore").split("\n")).collect(Collectors.toList()));
         plugItem.setItemMeta(meta);
         this.HELPER_STICK = plugItem;
         // 读取补货时间表

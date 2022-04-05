@@ -3,7 +3,7 @@ debug: false
 item:
   type: STICK
   name: "&6失智棒"
-  lores:
+  lore:
     - "&d好像轻轻一拍，村民就会变成呆若木鸡的样子"
     - "&d再拍一下，似乎就可以恢复正常"
     - "&f&o奇妙的世界与奇妙的魔法..."
