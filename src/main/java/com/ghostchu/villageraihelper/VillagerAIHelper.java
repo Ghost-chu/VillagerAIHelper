@@ -6,6 +6,7 @@ import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.v1_16_R3.entity.CraftVillager;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.entity.memory.MemoryKey;
@@ -14,6 +15,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -62,9 +64,11 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         // 配置文件上色
         Util.parseColours(getConfig());
         // 设置工具物品
-        ItemStack plugItem = new ItemStack(Material.STICK);
+        ItemStack plugItem = new ItemStack(Material.getMaterial(getConfig().getString("item.type","STICK")));
         ItemMeta meta = plugItem.getItemMeta();
         meta.setDisplayName(getConfig().getString("item.name"));
+        meta.addEnchant(Enchantment.DURABILITY, 1, true);
+        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         List<String> lores = getConfig().getStringList("item.lores");
         lores = lores.stream().map(Util::parseColours).collect(Collectors.toList());
         meta.setLore(lores);
