@@ -11,6 +11,7 @@ import org.bukkit.entity.Villager;
 import org.bukkit.entity.memory.MemoryKey;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -160,6 +161,21 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
             VillagerPastStatus data = gson.fromJson(villager.getPersistentDataContainer().get(VILLAGER_KEY, PersistentDataType.STRING), VillagerPastStatus.class);
             return data.getOperator();
         }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void damage(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Villager))
+            return;
+        if (!(event.getDamager() instanceof Player))
+            return;
+        Player player = (Player) event.getDamager();
+        Villager villager = (Villager) event.getEntity();
+        if (!isManagedVillager(villager))
+            player.sendMessage(getConfig().getString("message.query-miss"));
+        else
+            player.sendMessage(getConfig().getString("message.query-hit"));
+        event.setCancelled(true);
     }
 
     /**
