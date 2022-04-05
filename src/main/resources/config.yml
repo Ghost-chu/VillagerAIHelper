@@ -15,3 +15,4 @@ restock-schedule:
   - 3000
   - 5000
   - 6000
+jobsite-max-distance: 2

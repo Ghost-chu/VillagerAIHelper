@@ -194,6 +194,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
 
     /**
      * 使得指定的村民补货
+     *
      * @param villager 村民
      * @return 是否补货成功
      */
@@ -210,6 +211,10 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
             if (jobSite.getType() != jobMaterial)
                 return false;
         }
+        if (jobSitePos.getWorld() != villager.getWorld())
+            return false;
+        if (jobSitePos.distance(villager.getLocation()) > getConfig().getInt("jobsite-max-distance", 2))
+            return false;
         // TODO: 当版本更新时，此处也需要同时更新
         // TODO： 1.17+ 时，此处需要使用混淆映射表
         CraftVillager craftVillager = (CraftVillager) villager;
