@@ -200,8 +200,8 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
     private boolean restockVillager(@NotNull Villager villager) {
         if (!isManagedVillager(villager))
             return false;
-        CraftVillager craftVillager = (CraftVillager) villager;
-        Location jobSitePos = craftVillager.getMemory(MemoryKey.JOB_SITE);
+
+        Location jobSitePos = villager.getMemory(MemoryKey.JOB_SITE);
         if (jobSitePos == null)
             return false;
         Block jobSite = jobSitePos.getBlock();
@@ -212,6 +212,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         }
         // TODO: 当版本更新时，此处也需要同时更新
         // TODO： 1.17+ 时，此处需要使用混淆映射表
+        CraftVillager craftVillager = (CraftVillager) villager;
         craftVillager.getHandle().fb(); // fb -> restock()
         return true;
     }
