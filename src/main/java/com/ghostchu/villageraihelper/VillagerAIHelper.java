@@ -93,8 +93,6 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         getLogger().info("VillagerAIHelper has been successfully enabled!");
         // 每个 tick 都要执行的时间检查
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
-            int restocked = 0;
-            int skipped = 0;
             for (World world : Bukkit.getWorlds()) {
                 boolean hit = false;
                 for (int scheduled : restockScheduler) {
@@ -108,6 +106,8 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
                     continue;
                 }
                 // 补货
+                int restocked = 0;
+                int skipped = 0;
                 getLogger().info("Checking for villagers restocking in world " + world.getName() + "!");
                 for (Villager villager : world.getEntitiesByClass(Villager.class)) {
                     if (isManagedVillager(villager)) {
@@ -117,8 +117,9 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
                             skipped++;
                     }
                 }
+                getLogger().info("Total " + restocked + " managed villagers restocked and " + skipped + " skipped!");
             }
-            getLogger().info("Total " + restocked + " managed villagers restocked and " + skipped + " skipped!");
+
         }, 0, 1);
 
         Bukkit.getScheduler().runTask(this, () -> {
