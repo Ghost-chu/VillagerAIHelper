@@ -5,6 +5,7 @@ import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.craftbukkit.v1_16_R3.entity.CraftVillager;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
@@ -26,6 +27,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -37,6 +39,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
     private int[] restockScheduler;
     private final Map<Villager.Profession, Material> jobSites = new HashMap<>();
     private boolean chunkLoadingPatch = true;
+    private YamlConfiguration config;
 
     /**
      * 设置村民的工作方块
@@ -58,19 +61,18 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         jobSites.put(Villager.Profession.WEAPONSMITH, Material.GRINDSTONE);
     }
 
+
+
     @Override
     public void onEnable() {
         // Plugin startup logic
         saveDefaultConfig();
-        getConfig().options().copyDefaults(false);
-        reloadConfig();
-        // 配置文件上色
-        Util.parseColours(getConfig());
+        this.config = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "config.yml"));
         // 设置工具物品
-        ItemStack plugItem = new ItemStack(Material.getMaterial(getConfig().getString("item.type", "STICK")));
+        ItemStack plugItem = new ItemStack(Material.getMaterial(config.getString("item.type", "STICK")));
         ItemMeta meta = plugItem.getItemMeta();
-        String itemName = Util.parseColours(getConfig().getString("item.name"));
-        String itemLore = Util.parseColours(getConfig().getString("item.lore"));
+        String itemName = Util.parseColours(config.getString("item.name"));
+        String itemLore = Util.parseColours(config.getString("item.lore"));
         meta.setDisplayName(itemName);
         meta.addEnchant(Enchantment.DURABILITY, 1, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
@@ -78,7 +80,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         plugItem.setItemMeta(meta);
         this.HELPER_STICK = plugItem;
         // 读取补货时间表
-        List<Integer> restockTmp = getConfig().getIntegerList("restock-schedule");
+        List<Integer> restockTmp = config.getIntegerList("restock-schedule");
         restockScheduler = new int[restockTmp.size()]; // use array for best performance
         for (int i = 0; i < restockTmp.size(); i++) {
             restockScheduler[i] = restockTmp.get(i);
@@ -87,7 +89,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         // 设置职业方块映射表
         this.setupJobSites();
         Bukkit.getPluginManager().registerEvents(this, this);
-        chunkLoadingPatch = getConfig().getBoolean("patch-villagers-on-chunk-loading", true);
+        chunkLoadingPatch = config.getBoolean("patch-villagers-on-chunk-loading", true);
         getLogger().info("VillagerAIHelper has been successfully enabled!");
         // 每个 tick 都要执行的时间检查
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
@@ -170,10 +172,10 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         Villager villager = (Villager) event.getRightClicked();
         if (!isManagedVillager(villager)) {
             applyManage(villager, event.getPlayer().getUniqueId());
-            event.getPlayer().sendMessage(Util.parseColours(getConfig().getString("message.apply")));
+            event.getPlayer().sendMessage(Util.parseColours(config.getString("message.apply")));
         } else {
             undoManage(villager);
-            event.getPlayer().sendMessage(Util.parseColours(getConfig().getString("message.undo")));
+            event.getPlayer().sendMessage(Util.parseColours(config.getString("message.undo")));
         }
     }
 
@@ -211,9 +213,9 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         Player player = (Player) event.getDamager();
         Villager villager = (Villager) event.getEntity();
         if (!isManagedVillager(villager))
-            player.sendMessage(Util.parseColours(getConfig().getString("message.query-miss")));
+            player.sendMessage(Util.parseColours(config.getString("message.query-miss")));
         else
-            player.sendMessage(Util.parseColours(getConfig().getString("message.query-hit")));
+            player.sendMessage(Util.parseColours(config.getString("message.query-hit")));
         event.setCancelled(true);
     }
 
@@ -283,7 +285,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         }
         if (jobSitePos.getWorld() != villager.getWorld())
             return false;
-        return !(jobSitePos.distance(villager.getLocation()) > getConfig().getInt("jobsite-max-distance", 2));
+        return !(jobSitePos.distance(villager.getLocation()) > config.getInt("jobsite-max-distance", 2));
     }
 
     @Override
