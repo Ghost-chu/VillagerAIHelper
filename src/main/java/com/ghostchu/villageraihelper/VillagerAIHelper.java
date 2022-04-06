@@ -69,10 +69,12 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         // 设置工具物品
         ItemStack plugItem = new ItemStack(Material.getMaterial(getConfig().getString("item.type", "STICK")));
         ItemMeta meta = plugItem.getItemMeta();
-        meta.setDisplayName(getConfig().getString("item.name"));
+        String itemName = Util.parseColours(getConfig().getString("item.name"));
+        String itemLore = Util.parseColours(getConfig().getString("item.lore"));
+        meta.setDisplayName(itemName);
         meta.addEnchant(Enchantment.DURABILITY, 1, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-        meta.setLore(Arrays.stream(getConfig().getString("item.lore").split("\n")).collect(Collectors.toList()));
+        meta.setLore(Arrays.stream(itemLore.split("\n")).collect(Collectors.toList()));
         plugItem.setItemMeta(meta);
         this.HELPER_STICK = plugItem;
         // 读取补货时间表
@@ -89,6 +91,8 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         getLogger().info("VillagerAIHelper has been successfully enabled!");
         // 每个 tick 都要执行的时间检查
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
+            int restocked = 0;
+            int skipped = 0;
             for (World world : Bukkit.getWorlds()) {
                 boolean hit = false;
                 for (int scheduled : restockScheduler) {
@@ -103,8 +107,6 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
                 }
                 // 补货
                 getLogger().info("Checking for villagers restocking in world " + world.getName() + "!");
-                int restocked = 0;
-                int skipped = 0;
                 for (Villager villager : world.getEntitiesByClass(Villager.class)) {
                     if (isManagedVillager(villager)) {
                         if (restockVillager(villager))
@@ -113,11 +115,12 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
                             skipped++;
                     }
                 }
-                getLogger().info("Total " + restocked + " managed villagers restocked and " + skipped + " skipped!");
             }
+            getLogger().info("Total " + restocked + " managed villagers restocked and " + skipped + " skipped!");
         }, 0, 1);
 
         Bukkit.getScheduler().runTask(this, () -> {
+            getLogger().info("Checking for villagers and try repairing if needs...");
             Bukkit.getWorlds().forEach(world -> {
                 for (Villager villager : world.getEntitiesByClass(Villager.class)) {
                     tryRepairIfNeeds(villager);
@@ -167,10 +170,10 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         Villager villager = (Villager) event.getRightClicked();
         if (!isManagedVillager(villager)) {
             applyManage(villager, event.getPlayer().getUniqueId());
-            event.getPlayer().sendMessage(getConfig().getString("message.apply"));
+            event.getPlayer().sendMessage(Util.parseColours(getConfig().getString("message.apply")));
         } else {
             undoManage(villager);
-            event.getPlayer().sendMessage(getConfig().getString("message.undo"));
+            event.getPlayer().sendMessage(Util.parseColours(getConfig().getString("message.undo")));
         }
     }
 
@@ -208,9 +211,9 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         Player player = (Player) event.getDamager();
         Villager villager = (Villager) event.getEntity();
         if (!isManagedVillager(villager))
-            player.sendMessage(getConfig().getString("message.query-miss"));
+            player.sendMessage(Util.parseColours(getConfig().getString("message.query-miss")));
         else
-            player.sendMessage(getConfig().getString("message.query-hit"));
+            player.sendMessage(Util.parseColours(getConfig().getString("message.query-hit")));
         event.setCancelled(true);
     }
 
