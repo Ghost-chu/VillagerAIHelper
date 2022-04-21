@@ -212,7 +212,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         if (!(event.getDamager() instanceof Player))
             return;
         Player player = (Player) event.getDamager();
-        if(player.getInventory().getItemInMainHand().isSimilar(HELPER_STICK))
+        if(!player.getInventory().getItemInMainHand().isSimilar(HELPER_STICK))
             return;
         Villager villager = (Villager) event.getEntity();
         if (!isManagedVillager(villager))
