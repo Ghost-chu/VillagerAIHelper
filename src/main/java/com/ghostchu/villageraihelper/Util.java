@@ -1,6 +1,5 @@
 package com.ghostchu.villageraihelper;
 
-import org.apache.commons.lang.StringUtils;
 import org.bukkit.ChatColor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -26,7 +25,7 @@ public class Util {
      */
     @NotNull
     public static String parseColours(@Nullable String text) {
-        if (StringUtils.isEmpty(text)) {
+        if (text == null || text.isEmpty()) {
             return "";
         }
         return ChatColor.translateAlternateColorCodes('&', text);

@@ -6,7 +6,6 @@ import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.craftbukkit.v1_16_R3.entity.CraftVillager;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -36,6 +35,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
     private final Gson gson = new Gson();
     private ItemStack HELPER_STICK;
     private final NamespacedKey VILLAGER_KEY = new NamespacedKey(this, "villager_managed");
+    private final NamespacedKey LAST_RESTOCK = new NamespacedKey(this, "villager_last_restock_at");
     private int[] restockScheduler;
     private final Map<Villager.Profession, Material> jobSites = new HashMap<>();
     private boolean chunkLoadingPatch = true;
@@ -60,7 +60,6 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         jobSites.put(Villager.Profession.TOOLSMITH, Material.SMITHING_TABLE);
         jobSites.put(Villager.Profession.WEAPONSMITH, Material.GRINDSTONE);
     }
-
 
 
     @Override
@@ -136,11 +135,16 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
     public void onChunkLoad(ChunkLoadEvent event) {
         if (event.isNewChunk())
             return;
-        if (!chunkLoadingPatch)
-            return;
         for (Entity entity : event.getChunk().getEntities()) {
-            if (entity instanceof Villager) {
-                tryRepairIfNeeds((Villager) entity);
+            if (entity instanceof Villager villager) {
+                if (chunkLoadingPatch) {
+                    tryRepairIfNeeds(villager);
+                }
+                if (shouldCheckCanRestock(villager)) {
+                    if (canRestock(villager)) {
+                        restockVillager(villager);
+                    }
+                }
             }
         }
     }
@@ -163,14 +167,13 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void interact(PlayerInteractAtEntityEvent event) {
-        if (!(event.getRightClicked() instanceof Villager))
+        if (!(event.getRightClicked() instanceof Villager villager))
             return;
         if (event.getHand() != EquipmentSlot.HAND)
             return;
-        if (!event.getPlayer().getInventory().getItem(event.getHand()).isSimilar(HELPER_STICK)) {
+        if (!HELPER_STICK.isSimilar(event.getPlayer().getInventory().getItem(event.getHand()))) {
             return;
         }
-        Villager villager = (Villager) event.getRightClicked();
         if (!isManagedVillager(villager)) {
             applyManage(villager, event.getPlayer().getUniqueId());
             event.getPlayer().sendMessage(Util.parseColours(config.getString("message.apply")));
@@ -207,14 +210,12 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void damage(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Villager))
+        if (!(event.getEntity() instanceof Villager villager))
             return;
-        if (!(event.getDamager() instanceof Player))
+        if (!(event.getDamager() instanceof Player player))
             return;
-        Player player = (Player) event.getDamager();
-        if(!player.getInventory().getItemInMainHand().isSimilar(HELPER_STICK))
+        if (!player.getInventory().getItemInMainHand().isSimilar(HELPER_STICK))
             return;
-        Villager villager = (Villager) event.getEntity();
         if (!isManagedVillager(villager))
             player.sendMessage(Util.parseColours(config.getString("message.query-miss")));
         else
@@ -249,6 +250,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         if (pastStatus == null)
             return;
         villager.getPersistentDataContainer().remove(VILLAGER_KEY);
+        villager.getPersistentDataContainer().remove(LAST_RESTOCK);
         villager.setAI(pastStatus.isAiEnabled());
         villager.setAware(pastStatus.isAwareEnabled());
     }
@@ -265,13 +267,21 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
      */
     private boolean restockVillager(@NotNull Villager villager) {
         if (canRestock(villager)) {
-            // TODO: 当版本更新时，此处也需要同时更新
-            // TODO： 1.17+ 时，此处需要使用混淆映射表
-            CraftVillager craftVillager = (CraftVillager) villager;
-            craftVillager.getHandle().fb(); // fb -> restock()
+            villager.getRecipes().forEach(recipe -> recipe.setUses(0));
+            villager.getPersistentDataContainer().set(LAST_RESTOCK, PersistentDataType.LONG, villager.getWorld().getGameTime());
             return true;
         }
         return false;
+    }
+
+    private boolean shouldCheckCanRestock(@NotNull Villager villager) {
+        if (!isManagedVillager(villager))
+            return false;
+        Long lastRestockAt = villager.getPersistentDataContainer().get(LAST_RESTOCK, PersistentDataType.LONG);
+        if (lastRestockAt == null) {
+            lastRestockAt = 0L;
+        }
+        return Math.abs(villager.getWorld().getGameTime() - lastRestockAt) > getConfig().getLong("restock-max-duration");
     }
 
     private boolean canRestock(@NotNull Villager villager) {
@@ -296,8 +306,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         if (args.length == 0)
             return false;
         if (args[0].equalsIgnoreCase("give")) {
-            if (sender.hasPermission("villageraihelper.give") && sender instanceof Player) {
-                Player player = (Player) sender;
+            if (sender.hasPermission("villageraihelper.give") && sender instanceof Player player) {
                 player.getInventory().addItem(HELPER_STICK);
                 return true;
             }

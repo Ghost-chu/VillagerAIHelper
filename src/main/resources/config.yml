@@ -27,4 +27,6 @@ restock-schedule:
   - 3000
   - 5000
   - 6000
+# 当一个村民超过这么长 tick 没有补货过时，触发时立刻进行补货
+restock-max-duration: 6000
 jobsite-max-distance: 2
