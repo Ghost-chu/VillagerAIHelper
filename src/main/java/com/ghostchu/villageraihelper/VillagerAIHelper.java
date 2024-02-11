@@ -35,7 +35,9 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
     private final Gson gson = new Gson();
     private ItemStack HELPER_STICK;
     private final NamespacedKey VILLAGER_KEY = new NamespacedKey(this, "villager_managed");
-    private final NamespacedKey LAST_RESTOCK = new NamespacedKey(this, "villager_last_restock_at");
+    private final NamespacedKey HELPER_STICK_KEY = new NamespacedKey(this, "helper_stick");
+    private final NamespacedKey LAST_RESTOCK_AT_KEY = new NamespacedKey(this, "villager_last_restock_at");
+    private final NamespacedKey AI_REMOVER_KEY = new NamespacedKey(this, "villager_ai_remover");
     private int[] restockScheduler;
     private final Map<Villager.Profession, Material> jobSites = new HashMap<>();
     private boolean chunkLoadingPatch = true;
@@ -76,6 +78,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         meta.addEnchant(Enchantment.DURABILITY, 1, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         meta.setLore(Arrays.stream(itemLore.split("\n")).collect(Collectors.toList()));
+        meta.getPersistentDataContainer().set(HELPER_STICK_KEY, PersistentDataType.BOOLEAN, true);
         plugItem.setItemMeta(meta);
         this.HELPER_STICK = plugItem;
         // 读取补货时间表
@@ -171,16 +174,25 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
             return;
         if (event.getHand() != EquipmentSlot.HAND)
             return;
-        if (!HELPER_STICK.isSimilar(event.getPlayer().getInventory().getItem(event.getHand()))) {
+        if (!isHelperStick(event.getPlayer().getInventory().getItemInMainHand())) {
             return;
         }
         if (!isManagedVillager(villager)) {
-            applyManage(villager, event.getPlayer().getUniqueId());
-            event.getPlayer().sendMessage(Util.parseColours(config.getString("message.apply")));
+            if (!villager.hasMetadata("shopkeeper")) {
+                applyManage(villager, event.getPlayer().getUniqueId());
+                event.getPlayer().sendMessage(Util.parseColours(config.getString("message.apply")));
+            }
         } else {
             undoManage(villager);
             event.getPlayer().sendMessage(Util.parseColours(config.getString("message.undo")));
         }
+    }
+
+    private boolean isHelperStick(ItemStack item) {
+        if(item.hasItemMeta()) {
+            return item.getItemMeta().getPersistentDataContainer().has(HELPER_STICK_KEY);
+        }
+        return false;
     }
 
 
@@ -214,12 +226,22 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
             return;
         if (!(event.getDamager() instanceof Player player))
             return;
-        if (!player.getInventory().getItemInMainHand().isSimilar(HELPER_STICK))
+        if (!isHelperStick(player.getInventory().getItemInMainHand()))
             return;
-        if (!isManagedVillager(villager))
+        if (!isManagedVillager(villager)) {
             player.sendMessage(Util.parseColours(config.getString("message.query-miss")));
-        else
-            player.sendMessage(Util.parseColours(config.getString("message.query-hit")));
+        } else {
+            String json = villager.getPersistentDataContainer().get(VILLAGER_KEY, PersistentDataType.STRING);
+            Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+                VillagerPastStatus status = gson.fromJson(json, VillagerPastStatus.class);
+                String playerName = status.getOperator().toString();
+                String queryName = Bukkit.getOfflinePlayer(status.getOperator()).getName();
+                if (queryName != null) {
+                    playerName = queryName;
+                }
+                player.sendMessage(Util.parseColours(String.format(config.getString("message.query-hit", ""), playerName)));
+            });
+        }
         event.setCancelled(true);
     }
 
@@ -250,7 +272,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
         if (pastStatus == null)
             return;
         villager.getPersistentDataContainer().remove(VILLAGER_KEY);
-        villager.getPersistentDataContainer().remove(LAST_RESTOCK);
+        villager.getPersistentDataContainer().remove(LAST_RESTOCK_AT_KEY);
         villager.setAI(pastStatus.isAiEnabled());
         villager.setAware(pastStatus.isAwareEnabled());
     }
@@ -268,7 +290,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
     private boolean restockVillager(@NotNull Villager villager) {
         if (canRestock(villager)) {
             villager.getRecipes().forEach(recipe -> recipe.setUses(0));
-            villager.getPersistentDataContainer().set(LAST_RESTOCK, PersistentDataType.LONG, villager.getWorld().getGameTime());
+            villager.getPersistentDataContainer().set(LAST_RESTOCK_AT_KEY, PersistentDataType.LONG, villager.getWorld().getGameTime());
             return true;
         }
         return false;
@@ -277,7 +299,7 @@ public final class VillagerAIHelper extends JavaPlugin implements Listener {
     private boolean shouldCheckCanRestock(@NotNull Villager villager) {
         if (!isManagedVillager(villager))
             return false;
-        Long lastRestockAt = villager.getPersistentDataContainer().get(LAST_RESTOCK, PersistentDataType.LONG);
+        Long lastRestockAt = villager.getPersistentDataContainer().get(LAST_RESTOCK_AT_KEY, PersistentDataType.LONG);
         if (lastRestockAt == null) {
             lastRestockAt = 0L;
         }
